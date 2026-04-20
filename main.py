@@ -161,29 +161,19 @@ async def health():
     return {"status": "ok"}
 
 
-@app.post("/api/migrate")
-async def run_migration():
-    """One-time endpoint to add missing columns to existing tables."""
-    from sqlalchemy import text
-    migrations = [
-        "ALTER TABLE `scrape_job` ADD COLUMN `total_prodi_detail` INTEGER DEFAULT 0",
-        "ALTER TABLE `scrape_job` ADD COLUMN `new_prodi_detail` INTEGER DEFAULT 0",
-        "ALTER TABLE `perguruan_tinggi` ADD COLUMN `kelompok` VARCHAR(50) NULL",
-        "ALTER TABLE `perguruan_tinggi` ADD COLUMN `pembina` VARCHAR(50) NULL",
-        "ALTER TABLE `perguruan_tinggi` ADD COLUMN `status_pt` VARCHAR(50) NULL",
-    ]
-    results = []
-    async with engine.begin() as conn:
-        for sql in migrations:
-            try:
-                await conn.execute(text(sql))
-                results.append(f"✅ {sql}")
-            except Exception as e:
-                if "1060" in str(e):  # Duplicate column = already exists
-                    results.append(f"⏭️ Already exists, skipped")
-                else:
-                    results.append(f"❌ {str(e)}")
-    return {"results": results, "message": "Migration complete"}
+@app.get("/api/pddikti-status")
+async def pddikti_api_status():
+    """Cek status API PDDikti eksternal (pddikti.rone.dev) sebelum memulai scraping."""
+    from services.pddikti_client import check_api_status
+    status = await check_api_status()
+    return {
+        "pddikti_api": status,
+        "primary_url":  "https://pddikti.rone.dev/api/",
+        "fallback_url": "https://pddikti.fastapicloud.dev/api/",
+        "api_version":  "4.1.0",
+    }
+
+
 
 
 # Global exception handler — return error detail instead of plain "Internal Server Error"
